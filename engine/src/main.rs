@@ -55,74 +55,92 @@ fn print_board(board: &Board) {
     println!("    a b c d e f g h\n");
 }
 
+fn get_player_move(board: &Board) -> Move {
+    let mut move_list = Vec::new();
+    board.generate_moves(|moves| {
+        move_list.extend(moves);
+        false
+    });
+
+    let move_strings: Vec<String> = move_list.iter().map(|m| m.to_string()).collect();
+    println!("Valid moves: {}", move_strings.join(", "));
+
+    let player_move_obj: Move;
+    loop {
+        print!("Your move (e.g. e2e4): ");
+        io::stdout().flush().expect("Error flushing stdout");
+
+        let mut input = String::new();
+        io::stdin()
+            .read_line(&mut input)
+            .expect("Unable to read line");
+        let input = input.trim();
+
+        // Try to parse the UCI string (e.g., "e2e4" or "a7a8q")
+        match input.parse::<Move>() {
+            Ok(m) => {
+                // Check if this move is actually legal in the current position
+                if move_list.contains(&m) {
+                    player_move_obj = m;
+                    break; // Move is valid, exit input loop
+                } else {
+                    println!("Invalid move: '{}' is not legal right now.", input);
+                }
+            }
+            Err(_) => {
+                println!("Invalid format: '{}'. Use UCI format like 'e2e4'.", input);
+            }
+        }
+    }
+
+    player_move_obj
+}
+
+fn get_tensorfish_move(board: Board) -> Move {}
+
 fn main() -> io::Result<()> {
     println!("{}", LOGO);
 
-    let mut player_colour = String::new();
-    let tensorfish_colour: &str;
+    let player_side: Color;
+    let mut player_input = String::new();
 
     loop {
         print!("Choose colour (w/b): ");
         io::stdout().flush()?;
+        player_input.clear();
+        io::stdin().read_line(&mut player_input)?;
 
-        player_colour.clear();
-        io::stdin().read_line(&mut player_colour)?;
-
-        match player_colour.trim() {
+        match player_input.trim().to_lowercase().as_str() {
             "w" => {
-                tensorfish_colour = "b";
+                player_side = Color::White;
                 break;
             }
             "b" => {
-                tensorfish_colour = "w";
+                player_side = Color::Black;
                 break;
             }
             _ => println!("Invalid choice, please type 'w' or 'b'."),
         }
     }
 
-    println!("Tensorfish plays as: {}", tensorfish_colour);
+    println!("You are playing as: {:?}", player_side);
+    println!("Tensorfish is playing as: {:?}", !player_side);
 
     let mut board = Board::default();
     while board.status() == GameStatus::Ongoing {
         print_board(&board);
-        
-        let mut move_list = Vec::new();
-        board.generate_moves(|moves| {
-            move_list.extend(moves);
-            false
-        });
 
-        let move_strings: Vec<String> = move_list.iter().map(|m| m.to_string()).collect();
-        println!("Valid moves: {}", move_strings.join(", "));
+        let side_to_move = board.side_to_move();
+        println!("Current turn: {:?}", side_to_move);
 
-        let player_move_obj: Move;
-        loop {
-            print!("Your move (e.g. e2e4): ");
-            io::stdout().flush()?;
-
-            let mut input = String::new();
-            io::stdin().read_line(&mut input)?;
-            let input = input.trim();
-
-            // Try to parse the UCI string (e.g., "e2e4" or "a7a8q")
-            match input.parse::<Move>() {
-                Ok(m) => {
-                    // Check if this move is actually legal in the current position
-                    if move_list.contains(&m) {
-                        player_move_obj = m;
-                        break; // Move is valid, exit input loop
-                    } else {
-                        println!("Invalid move: '{}' is not legal right now.", input);
-                    }
-                }
-                Err(_) => {
-                    println!("Invalid format: '{}'. Use UCI format like 'e2e4'.", input);
-                }
-            }
+        let mv: Move;
+        if player_side == side_to_move {
+            mv = get_player_move(&board);
+        } else {
+            mv = get_tensorfish_move(board.clone());
         }
 
-        board.play(player_move_obj);
+        board.play(mv);
     }
 
     Ok(())
